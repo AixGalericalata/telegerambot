@@ -1,8 +1,44 @@
 from telegram.ext import Updater, MessageHandler, Filters
 from telegram.ext import CallbackContext, CommandHandler
+from telegram import ReplyKeyboardMarkup
 import time
+import random
 
 TOKEN = '1626176954:AAFdiHbSGPA8td6gFYQx_XI-Wb6pEwJAWcs'
+
+start_keyboard = [['/dice', '/timer']]
+start_markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=True)
+
+close_keyboard = [['/close']]
+close_markup = ReplyKeyboardMarkup(close_keyboard, one_time_keyboard=True)
+
+
+def draw_one_dice():
+    return str(random.randint(1, 6))
+
+
+def draw_two_dices():
+    return f"{random.randint(1, 6)}, {random.randint(1, 6)}"
+
+
+def draw_big_dice():
+    return str(random.randint(1, 20))
+
+
+time_dict = {'30 секунд': 3, '1 минута': 60, '5 минут': 300}
+dice_dict = {'Кинуть один шестигранный кубик': draw_one_dice,
+             'Кинуть 2 шестигранных кубика одновременно': draw_two_dices,
+             'Кинуть 20-гранный кубик': draw_big_dice}
+
+dice_keyboard = list(dice_dict.keys())
+dice_keyboard.append('Вернуться назад')
+dice_keyboard = list(map(lambda x: [x], dice_keyboard))
+dice_markup = ReplyKeyboardMarkup(dice_keyboard, one_time_keyboard=False)
+
+timer_keyboard = list(time_dict.keys())
+timer_keyboard.append('Вернуться назад')
+timer_keyboard = list(map(lambda x: [x], timer_keyboard))
+timer_markup = ReplyKeyboardMarkup(timer_keyboard, one_time_keyboard=False)
 
 
 def remove_job_if_exists(name, context):
@@ -14,10 +50,43 @@ def remove_job_if_exists(name, context):
     return True
 
 
-def set_timer(update, context):
+def start(update, context):
+    update.message.reply_text(
+        "Я JustBot. Чем сегодня займётесь?",
+        reply_markup=start_markup
+    )
+
+
+def timer(update, context):
+    update.message.reply_text(
+        "Хотите засечь время?",
+        reply_markup=timer_markup
+    )
+
+
+def dice(update, context):
+    update.message.reply_text(
+        "Хотите кинуть кубик?",
+        reply_markup=dice_markup
+    )
+
+
+def close(update, context):
+    chat_id = update.message.chat_id
+    job_removed = remove_job_if_exists(
+        str(chat_id),
+        context
+    )
+    update.message.reply_text(
+        "Таймер сброшен. Хотите засечь время?" if job_removed else 'Таймер не запущен.',
+        reply_markup=timer_markup
+    )
+
+
+def set_my_timer(update, context, number, msg):
     chat_id = update.message.chat_id
     try:
-        due = int(context.args[0])
+        due = number
         if due < 0:
             update.message.reply_text(
                 'Извините, не умеем возвращаться в прошлое')
@@ -29,37 +98,37 @@ def set_timer(update, context):
         context.job_queue.run_once(
             task,
             due,
-            context=chat_id,
+            context={'chat_id': chat_id, 'due': msg},
             name=str(chat_id)
         )
-        text = f'Таймер сработает через {due} секунд.'
+        text = f'Засек {msg}.'
         if job_removed:
             text += ' Старая задача удалена.'
-        update.message.reply_text(text)
+        update.message.reply_text(text, reply_markup=close_markup)
 
     except (IndexError, ValueError):
-        update.message.reply_text('Использование: /set <секунд>')
+        update.message.reply_text('Ошибка.')
 
 
 def task(context):
     job = context.job
-    context.bot.send_message(job.context, text='Время вышло!')
+    context.bot.send_message(job.context['chat_id'], text=f'{job.context["due"]} истекло')
 
 
 def echo(update, context):
-    update.message.reply_text(f'Я получил сообщение {update.message.text}')
-
-
-def time_handler(update, context):
-    current_time = time.localtime()
-    time_string = time.strftime("%H:%M:%S", current_time)
-    update.message.reply_text(time_string)
-
-
-def date_handler(update, context):
-    current_time = time.localtime()
-    time_string = time.strftime("%m/%d/%Y", current_time)
-    update.message.reply_text(time_string)
+    text = update.message.text
+    if text == 'Вернуться назад':
+        start(update, context)
+        return
+    func = dice_dict.get(text)
+    if func:
+        update.message.reply_text(func())
+        return
+    number = time_dict.get(text)
+    if number:
+        set_my_timer(update, context, number, text)
+        return
+    update.message.reply_text(f'Я получил сообщение {text}')
 
 
 def main():
@@ -67,12 +136,10 @@ def main():
     dp = updater.dispatcher
 
     text_handler = MessageHandler(Filters.text, echo)
-    dp.add_handler(CommandHandler("time", time_handler))
-    dp.add_handler(CommandHandler("date", date_handler))
-    dp.add_handler(CommandHandler("set_timer", set_timer,
-                                  pass_args=True,
-                                  pass_job_queue=True,
-                                  pass_chat_data=True))
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("dice", dice))
+    dp.add_handler(CommandHandler("timer", timer))
+    dp.add_handler(CommandHandler("close", close))
 
     dp.add_handler(text_handler)
 
