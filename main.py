@@ -5,6 +5,47 @@ import time
 TOKEN = '1626176954:AAFdiHbSGPA8td6gFYQx_XI-Wb6pEwJAWcs'
 
 
+def remove_job_if_exists(name, context):
+    current_jobs = context.job_queue.get_jobs_by_name(name)
+    if not current_jobs:
+        return False
+    for job in current_jobs:
+        job.schedule_removal()
+    return True
+
+
+def set_timer(update, context):
+    chat_id = update.message.chat_id
+    try:
+        due = int(context.args[0])
+        if due < 0:
+            update.message.reply_text(
+                'Извините, не умеем возвращаться в прошлое')
+            return
+        job_removed = remove_job_if_exists(
+            str(chat_id),
+            context
+        )
+        context.job_queue.run_once(
+            task,
+            due,
+            context=chat_id,
+            name=str(chat_id)
+        )
+        text = f'Таймер сработает через {due} секунд.'
+        if job_removed:
+            text += ' Старая задача удалена.'
+        update.message.reply_text(text)
+
+    except (IndexError, ValueError):
+        update.message.reply_text('Использование: /set <секунд>')
+
+
+def task(context):
+    job = context.job
+    context.bot.send_message(job.context, text='Время вышло!')
+
+
 def echo(update, context):
     update.message.reply_text(f'Я получил сообщение {update.message.text}')
 
@@ -28,6 +69,10 @@ def main():
     text_handler = MessageHandler(Filters.text, echo)
     dp.add_handler(CommandHandler("time", time_handler))
     dp.add_handler(CommandHandler("date", date_handler))
+    dp.add_handler(CommandHandler("set_timer", set_timer,
+                                  pass_args=True,
+                                  pass_job_queue=True,
+                                  pass_chat_data=True))
 
     dp.add_handler(text_handler)
 
