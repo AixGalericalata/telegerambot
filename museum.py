@@ -26,6 +26,12 @@ def hall_4(update, context):
 
 
 def hall_3(update, context):
+    if update.message.text == entering_first_hall:
+        hall_1_keyboard = [[entering_second_hall, exit]]
+        update.message.reply_text(
+            'Вы входите в первый зал. В данном зале представлено первобытное искусство.',
+            reply_markup=ReplyKeyboardMarkup(hall_1_keyboard, one_time_keyboard=True))
+        return 1
     if update.message.text == entering_fourth_hall:
         hall_4_keyboard = [[entering_first_hall]]
         update.message.reply_text(
@@ -38,7 +44,7 @@ def hall_3(update, context):
 
 def hall_2(update, context):
     if update.message.text == entering_third_hall:
-        hall_3_keyboard = [[entering_fourth_hall]]
+        hall_3_keyboard = [[entering_first_hall, entering_fourth_hall]]
         update.message.reply_text(
             'Вы входите в третий зал. В данном зале представлено искусство Древнего Египта.',
             reply_markup=ReplyKeyboardMarkup(hall_3_keyboard, one_time_keyboard=True))
