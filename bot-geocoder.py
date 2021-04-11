@@ -1,9 +1,5 @@
 from telegram.ext import Updater, MessageHandler, Filters
 import requests
-from telegram.ext import CallbackContext, CommandHandler
-from telegram import ReplyKeyboardMarkup
-import time
-import random
 
 TOKEN = '1626176954:AAFdiHbSGPA8td6gFYQx_XI-Wb6pEwJAWcs'
 
@@ -49,9 +45,7 @@ def geocoder(update, context):
 
     static_api_request = f"http://static-maps.yandex.ru/1.x/?ll={ll}&spn={spn}&l=map&pt={ll},pm2dom"
     context.bot.send_photo(
-        update.message.chat_id,  # Идентификатор чата. Куда посылать картинку.
-        # Ссылка на static API, по сути, ссылка на картинку.
-        # Телеграму можно передать прямо её, не скачивая предварительно карту.
+        update.message.chat_id,
         static_api_request,
         caption=name
     )
